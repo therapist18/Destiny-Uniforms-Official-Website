@@ -2,7 +2,6 @@
 include('connection.php');
 session_start();
 
-
 $email = $password = '';
 $errors = array('email' => '', 'password' => '');
 
@@ -17,26 +16,46 @@ if (isset($_POST['submit'])) {
         if ($password == $result["password"]) {
             $_SESSION['email'] = $result['email'];
             $_SESSION['user_id'] = $result['user_id'];
+            $_SESSION['first_name'] = $result['first_name'];
 
-            if($_SESSION['user_id'] == 1){
+            // Check if the user already has a cart
+            $check_cart = mysqli_query($conn, "SELECT cart_id FROM cart");
+
+            if ($check_cart && mysqli_num_rows($check_cart) == 0){
+                // Retrieve the maximum cart_id and increment it by one
+                $max_cart_id_query = mysqli_query($conn, "SELECT MAX(cart_id) AS max_cart_id FROM cart");
+                $max_cart_id_row = mysqli_fetch_assoc($max_cart_id_query);
+                $max_cart_id = $max_cart_id_row['max_cart_id'];
+                $cart_id = $max_cart_id + 1;
+
+                // Insert cart_id for the user
+                $insert_cart_id_query = mysqli_query($conn, "INSERT INTO cart (cart_id, user_id) VALUES ($cart_id, $user_id)");
+                if (!$insert_cart_id_query) {
+                    // Handle insertion error
+                    echo "Error inserting cart_id into database.";
+                }
+            }
+
+            // Redirect the user based on their role
+            if ($_SESSION['user_id'] == 1) {
                 echo "<script>
                 window.onload = function() {
-                alert('Login Successful');
-                setTimeout(function() {
-                    window.location.href = 'admin.php';
-                }, 1000);
-            }
-            </script>";
-            }
-            else{
-            echo "<script>
+                    alert('Login Successful');
+                    setTimeout(function() {
+                        window.location.href = 'admin.php';
+                    }, 1000);
+                }
+                </script>";
+            } else {
+                echo "<script>
                 window.onload = function() {
                     alert('Login Successful');
                     setTimeout(function() {
                         window.location.href = 'account.php';
                     }, 1000);
                 }
-                </script>";}
+                </script>";
+            }
             exit(); // stop executing further code after redirection
         } else {
             $errors['password'] = "Wrong password";
@@ -45,8 +64,8 @@ if (isset($_POST['submit'])) {
         $errors['email'] = "User not registered";
     }
 }
-
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
