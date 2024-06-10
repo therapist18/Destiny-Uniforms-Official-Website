@@ -1,67 +1,120 @@
 <?php
 session_start();
-
 include('connection.php');
 include('script.php');
 
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_to_cart'])) {
+
+
+if ($_SERVER ["REQUEST_METHOD"] == "POST" && isset($_POST['add_to_cart'])) {
     $quantity = 1;
-    $user_id = $_SESSION['user_id'];
+    // $user_id = $_SESSION['user_id'];
     $product_id = $_POST["product_id"];
 
-    // Check if the user already has a cart
-    $check_cart = mysqli_query($conn, "SELECT cart_id FROM cart WHERE user_id = $user_id LIMIT 1");
+    // Check if user is logged in
+    if (isset($_SESSION['user_id'])) {
+      $user_id = $_SESSION['user_id'];
 
-    if ($check_cart && mysqli_num_rows($check_cart) == 0){
-      echo "user has no cart";
-        // The user does not have a cart, create a new cart_id
-        $max_cart_id_query = mysqli_query($conn, "SELECT MAX(cart_id) AS max_cart_id FROM cart");
-        $max_cart_id_row = mysqli_fetch_assoc($max_cart_id_query);
-        $max_cart_id = $max_cart_id_row['max_cart_id'];
+      // Check if the user already has a cart
+      $check_cart = mysqli_query($conn, "SELECT cart_id FROM cart WHERE user_id = $user_id LIMIT 1");
 
-        // Increment the maximum cart_id by 1 to get the next cart_id
-        $cart_id = $max_cart_id + 1;
-        //  $cart_id = time(); // Generate a unique cart_id based on the current timestamp
-        $insert_product = mysqli_query($conn, "INSERT INTO cart (cart_id, user_id, product_id, quantity) VALUES ($cart_id, $user_id, $product_id, $quantity)");
+      if ($check_cart && mysqli_num_rows($check_cart) == 0){
     
+          $max_cart_id_query = mysqli_query($conn, "SELECT MAX(cart_id) AS max_cart_id FROM cart");
+          $max_cart_id_row = mysqli_fetch_assoc($max_cart_id_query);
+          $max_cart_id = $max_cart_id_row['max_cart_id'];
 
-    } else {
-        // The user has a cart, fetch the cart_id
-        echo "user has cart";
-        $row = mysqli_fetch_assoc($check_cart);
-        $cart_id = $row['cart_id'];
+          $cart_id = $max_cart_id + 1;
+
+    
+          $insert_product = mysqli_query($conn, "INSERT INTO cart (cart_id, user_id, product_id, quantity) VALUES ($cart_id, $user_id, $product_id, $quantity)");
+
+          if ($insert_product) {
+              // $_SESSION['message'] = 'Product added to cart!';
+              echo "hello";
+          } else {
+              $_SESSION['message'] = 'Failed to add product to cart!';
+          }
+
+      } else {
         
-        // Check if the product is already in the user's cart
-        $check_product = mysqli_query($conn, "SELECT * FROM cart WHERE cart_id = $cart_id AND product_id = $product_id");
+          $row = mysqli_fetch_assoc($check_cart);
+          $cart_id = $row['cart_id'];
+          
 
-        if ($check_product && mysqli_num_rows($check_product) > 0) {
-            // Product is already in the cart, update the quantity
-            $row = mysqli_fetch_assoc($check_product);
-            $quantity += $row['quantity']; // Increment the quantity
-            $update_cart = mysqli_query($conn, "UPDATE cart SET quantity = $quantity WHERE cart_id = $cart_id AND product_id = $product_id");
+          $check_product = mysqli_query($conn, "SELECT * FROM cart WHERE cart_id = $cart_id AND product_id = $product_id");
 
-            if ($update_cart) {
-                echo '<script>alert("Product quantity updated in cart!");</script>';
-            } else {
-                echo '<script>alert("Failed to update product quantity in cart!");</script>';
-            }
-        } else {
-            // Product is not in the cart, insert a new row
-            $insert_product = mysqli_query($conn, "INSERT INTO cart (cart_id, user_id, product_id, quantity) VALUES ($cart_id, $user_id, $product_id, $quantity)");
+          if ($check_product && mysqli_num_rows($check_product) > 0) {
+          
+              $row = mysqli_fetch_assoc($check_product);
+              $quantity += $row['quantity']; 
+              $update_cart = mysqli_query($conn, "UPDATE cart SET quantity = $quantity WHERE cart_id = $cart_id AND product_id = $product_id");
 
-            if ($insert_product) {
-                echo '<script>alert("Product added to cart!");</script>';
-            } else {
-                echo '<script>alert("Failed to add product to cart!");</script>';
+              if ($update_cart) {
+                  $_SESSION['message'] = 'Product quantity updated in cart!';
+              } else {
+                  $_SESSION['message'] = 'Failed to update product quantity in cart!';
+              }
+          } else {
+        
+              $insert_product = mysqli_query($conn, "INSERT INTO cart (cart_id, user_id, product_id, quantity) VALUES ($cart_id, $user_id, $product_id, $quantity)");
+
+              if ($insert_product) {
+                  $_SESSION['message'] = 'Product added to cart!';
+              } else {
+                  $_SESSION['message'] = 'Failed to add product to cart!';
+              }
+          }
+      }
+    }
+    else{
+        // User is not logged in, handle guest cart
+        if (!isset($_SESSION['cart'])) {
+            $_SESSION['cart'] = [];
+        }
+
+        $product_exists = false;
+        foreach ($_SESSION['cart'] as &$item) {
+            if ($item['product_id'] == $product_id) {
+                $item['quantity'] += $quantity;
+                $product_exists = true;
+                break;
             }
         }
-      }
- // Redirect after processing the form submission
-   header('Location: shop.php'); // Replace 'cart.php' with the appropriate URL
- exit; // Ensure that no further code is executed after the redirect
-}
-?>
+        
+        $_SESSION['message'] = 'Quantity updated!';
 
+        if (!$product_exists) {
+            $_SESSION['cart'][] = [
+                'product_id' => $product_id,
+                'quantity' => $quantity,
+            ];
+            $_SESSION['message'] = 'Product added to cart!';
+        }
+
+        
+    }
+
+   
+    header('Location: shop.php');
+    exit(); 
+  }
+
+// if (isset($_GET['message']) && $_GET['message'] == 'added_to_cart') {
+  // echo "<script>
+  //     window.onload = function() {
+  //         alert('Item added to cart successfully!');
+  //         window.history.replaceState({}, document.title, window.location.pathname);
+  //     }
+  // </script>";
+// }
+
+if (isset($_SESSION['message'])) {
+  echo $_SESSION['message'];
+
+  unset($_SESSION['message']);
+}
+
+?>
 
 
 <!DOCTYPE html>
@@ -71,11 +124,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_to_cart'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shop</title>
     <link rel="icon" href="img/logo2.jpg" type="image/x-icon">
-    
+    <script>
+      function clearCartSession(){
+       window.location.href = "clear_cart_session.php";
+      }
+    </script>
 </head>
 <body>
   <?php include('header.php'); ?>
   
+  <button onclick="clearCartSession()">click me</button>
   <section class="container-lg pt-3 pt-md-5">
     <div class="pb-3">
       <nav class="nav" style="font-size: 14px;">
@@ -187,7 +245,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_to_cart'])) {
       </main>
     </div>
   </section>  
-    
+  <script>
+    const sessionData = <?php echo json_encode($_SESSION); ?>;
+    sessionStorage.setItem('cart', JSON.stringify(sessionData.cart));
+    console.log('Session data stored in browser:', sessionStorage.getItem('cart'));
+</script>
     <?php include('footer.php'); ?>
 
 </body>
