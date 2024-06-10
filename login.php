@@ -22,18 +22,33 @@ if (isset($_POST['submit'])) {
             $check_cart = mysqli_query($conn, "SELECT cart_id FROM cart");
 
             if ($check_cart && mysqli_num_rows($check_cart) == 0){
-                // Retrieve the maximum cart_id and increment it by one
+            
                 $max_cart_id_query = mysqli_query($conn, "SELECT MAX(cart_id) AS max_cart_id FROM cart");
                 $max_cart_id_row = mysqli_fetch_assoc($max_cart_id_query);
                 $max_cart_id = $max_cart_id_row['max_cart_id'];
+
                 $cart_id = $max_cart_id + 1;
 
-                // Insert cart_id for the user
-                $insert_cart_id_query = mysqli_query($conn, "INSERT INTO cart (cart_id, user_id) VALUES ($cart_id, $user_id)");
-                if (!$insert_cart_id_query) {
-                    // Handle insertion error
-                    echo "Error inserting cart_id into database.";
+            
+            // Retrieve the session cart
+            if(isset($_SESSION['cart']) && !empty($_SESSION['cart'])) {
+                $cart_items = $_SESSION['cart'];
+
+                // Insert cart items into the database
+                foreach ($cart_items as $item) {
+                    $product_id = $item['product_id'];
+                    $quantity = $item['quantity'];
+                    $cart_id = $item['cart_id'];
+
+                    $insert_query = mysqli_query($conn, "INSERT INTO cart (cart_id, user_id, product_id, quantity) VALUES ('$cart_id' , '$result[user_id]', '$product_id', '$quantity')");
+                    if (!$insert_query) {
+                        // Handle insertion error
+                        echo "Error inserting cart items into database.";
+                    }
                 }
+
+                // Clear the session cart after inserting into the database
+                unset($_SESSION['cart']);
             }
 
             // Redirect the user based on their role
@@ -64,6 +79,8 @@ if (isset($_POST['submit'])) {
         $errors['email'] = "User not registered";
     }
 }
+}
+
 ?>
 
 
