@@ -20,6 +20,7 @@
     echo "quantity updated ";
 
   }
+
   if(isset($_GET['delete'])){
     $remove_id = $_GET['delete'];
     $delete_query = mysqli_query($conn, "DELETE FROM cart WHERE product_id = '$remove_id'") or die('query failed');
@@ -32,7 +33,88 @@
       //  header('location:cart.php');
       //  $message[] = '<script> alert ("Product not Deleted")</script>';
     }
- };
+  };
+
+  if(isset($_GET['delete_all'])){
+    $remove_id = $_GET['delete_all'];
+    $delete_query = mysqli_query($conn, "DELETE FROM cart") or die('query failed');
+    if($delete_query){
+      
+       echo '<script> alert ("Products Deleted")</script>';
+        header('location:cart.php');
+    }
+    else{
+      //  header('location:cart.php');
+      //  $message[] = '<script> alert ("Product not Deleted")</script>';
+    }
+  };
+
+// Increment quantity
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['increment'])) {
+  $product_id = $_POST['product_id'];
+  incrementQuantity($product_id);
+  // echo " <script> alert('Quantity Updated successfully');</script>";
+
+  header('Location: cart.php');
+}
+
+// Decrement quantity
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['decrement']) ) {
+  $product_id = $_POST['product_id'];
+  decrementQuantity($product_id);
+  // echo " <script> alert('Quantity Updated successfully');</script>";
+
+  header('Location: cart.php');
+
+}
+
+// Delete product from session cart
+if (isset($_GET['delete'])) {
+  $remove_id = $_GET['delete'];
+  $cart = $_SESSION['cart'];
+  foreach ($cart as $key => $item) {
+      if ($item['product_id'] == $remove_id) {
+          unset($cart[$key]);
+          $_SESSION['cart'] = array_values($cart); // Reset array keys
+          $_SESSION['message'] = 'Product deleted from cart successfully!';
+          //  echo " <script> alert('Product deleted from cart successfully');</script>";
+         
+         break;
+      }
+  }
+  header('Location: cart.php?message=delete');
+}
+
+function incrementQuantity($product_id) {
+  foreach ($_SESSION['cart'] as &$item) {
+      if ($item['product_id'] == $product_id) {
+          $item['quantity']++;
+          break;
+      }
+  }
+}
+
+function decrementQuantity($product_id) {
+  foreach ($_SESSION['cart'] as &$item) {
+      if ($item['product_id'] == $product_id) {
+          if ($item['quantity'] > 1) {
+              $item['quantity']--;
+          }
+          break;
+      }
+  }
+}
+
+
+
+if (isset($_GET['message']) && $_GET['message'] == 'delete') {
+echo "<script>
+  window.onload = function() {
+      alert('Item deleted from cart successfully!');
+      window.history.replaceState({}, document.title, window.location.pathname);
+  }
+</script>";
+}
 
 ?>
 <!DOCTYPE html>
@@ -55,7 +137,13 @@
   </div> 
 </section> 
 
-<section class="container-lg">
+  <?php 
+    // Check if user is logged in
+    if (isset($_SESSION['user_id'])) {
+      $user_id = $_SESSION['user_id'];
+  ?>
+
+  <section class="container-lg">
   <table class="container">
     <thead>
       <tr>
@@ -114,7 +202,7 @@
                }?>
       </td>
     </tr>
-        <tr>
+      <tr>
         <td></td>
         <td class="total col-12 p-3">
           <p>Subtotal </p>
@@ -125,9 +213,92 @@
           <!-- You can add more rows for Tax, Total, etc. -->
         </td>
       </tr>
+      <tr>
+        <td></td>
+        <td></td>
+        <td class="text-center">
+          <a href="cart.php?delete_all" onclick="return confirm('delete all from cart?');" class="ms-3 <?php echo ($subtotal > 1)?'':'disabled'; ?> btn btn-outline-info"> <i class="bi bi-trash-fill"></i> delete all </a></td>
+        </td>
+        </tr>
     </tbody>
   </table>
-</section>
+  </section>
+  
+  <?php }
+  else {
+    if(isset($_SESSION['cart'])) {
+      $cart = $_SESSION['cart'];
+      $subtotal = 0; // Initialize subtotal variable
+    }
+   ?>
+    
+    <section class="container-lg">
+        <table class="container">
+            <thead>
+                <tr>
+                    <th scope="col" class="p-2" style="background-color: var(--primary-color) !important; border-right:3px solid #ffff;">Product</th>
+                    <th scope="col" class="p-2" style="background-color: var(--primary-color) !important;border-right:3px solid #ffff;">Quantity</th>
+                    <th scope="col" class="p-2" style="background-color: var(--primary-color) !important;">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php 
+                foreach ($cart as $item) {
+                    // Fetch product details from the database based on product_id
+                    $product_id = $item['product_id'];
+                    $product_query = mysqli_query($conn, "SELECT * FROM products WHERE product_id = $product_id");
+                    $product = mysqli_fetch_assoc($product_query);
+                    $subtotal += ($product['price'] * $item['quantity']);
+                ?>
+                <tr class="border-bottom border-info">
+                    <td class="row p-3">
+                        <div class="col-12 col-md-3">
+                            <img src="<?php echo htmlspecialchars($product['product_image']); ?>" width="150px" class="image-fluid">
+                        </div>
+                        <div class="col-12 col-md-9 mt-2 mt-lg-4 pt-lg-4 desc">
+                            <small><?php echo htmlspecialchars($product['product_name']); ?></small><br>
+                            <small class="fw-light">Price: Ksh <?php echo htmlspecialchars($product['price']); ?></small><br>
+                            <a href="cart.php?delete=<?php echo htmlspecialchars($product['product_id']); ?>" class="btn btn-outline-info" onclick="return confirm('Are you sure you want to remove item from cart?');"><i class="bi bi-trash-fill"></i></a>
+                        </div>
+                    </td>
+                    <td>
+                        <form action="" method="POST">
+                            <div class="card">
+                                <button type="submit" class="inc-dec-btn" name="increment">+</button>
+                                <div class="number text-center" min="1" ><?php echo htmlspecialchars($item['quantity']); ?></div>
+                                <button type="submit" class="inc-dec-btn" name="decrement">-</button>
+                            </div> 
+                            
+                            <input type="hidden" name="quantity" value="<?php echo htmlspecialchars($item['quantity']); ?>">
+                            <input type="hidden" name="product_id" value="<?php echo htmlspecialchars($product['product_id']); ?>">
+                        </form>         
+                    </td>
+                    <td>
+                        <p class="text-center">Ksh <?php echo htmlspecialchars($product['price'] * $item['quantity']); ?></p>
+                    </td>
+                </tr>
+                <?php } ?>
+                <tr>
+                    <td></td>
+                    <td class="total col-12 p-3 text-center">
+                        <p>Subtotal </p>
+                    </td>
+                    <td class="text-center">
+                        <p>Ksh <?php echo htmlspecialchars($subtotal); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                <td></td>
+                <td></td>
+                <td class="text-center">
+                  <a href="cart.php?delete_all" onclick="return confirm('delete all from cart?');" class="ms-3 <?php echo ($subtotal > 1)?'':'disabled'; ?> btn btn-outline-info"> <i class="bi bi-trash-fill"></i> delete all </a></td>
+                </td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+  <?php } ?>
 
 <section class="container-lg mt-5 mb-5 action-btns">
   <div class="container justify-content-evenly d-flex">
@@ -137,38 +308,6 @@
 </section>
 
 <?php include('footer.php'); ?>
-<!-- 
-<script>
-function updateCartCount() {
-  const cartCountElement = document.querySelector('.count');
-  if (cartCountElement) {
-    cartCountElement.textContent = <?php echo $cart_count; ?>;
-  }
-}
-
-function removeFromCart(productId) {
-  fetch('remove_from_cart.php', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ product_id: productId })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      location.reload();
-    } else {
-      alert('Failed to remove item from cart');
-    }
-  })
-  .catch(error => {
-    console.error('Error:', error);
-  });
-}
-
-window.onload = updateCartCount;
-</script> -->
 
 </body>
 </html>
