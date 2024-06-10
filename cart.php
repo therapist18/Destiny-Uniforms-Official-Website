@@ -85,6 +85,13 @@ if (isset($_GET['delete'])) {
   header('Location: cart.php?message=delete');
 }
 
+
+// Delete product from session cart
+if (isset($_GET['delete_all'])) {
+  unset($_SESSION['cart']);
+  header('Location: cart.php?message=delete');
+}
+
 function incrementQuantity($product_id) {
   foreach ($_SESSION['cart'] as &$item) {
       if ($item['product_id'] == $product_id) {
@@ -115,6 +122,10 @@ echo "<script>
   }
 </script>";
 }
+// Initialize cart array and subtotal
+$cart = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
+$subtotal = 0;
+
 
 ?>
 <!DOCTYPE html>
